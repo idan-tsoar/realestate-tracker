@@ -6,6 +6,8 @@
   <title>ניהול נכסי נדל"ן</title>
   <link rel="stylesheet" href="css/styles.css" />
 
+  <!-- JSZip — download all files as ZIP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -469,6 +471,7 @@
       <button class="hero-back" onclick="Props.closeDetail()">← חזרה</button>
       <div class="hero-actions">
         <button class="hero-btn" style="background:rgba(255,255,255,.22);color:white" onclick="Props.openEdit()">✏️ עריכה</button>
+        <button class="hero-btn" style="background:rgba(16,185,129,.8);color:white" onclick="Props.downloadAll()">⬇️ הורד הכל</button>
         <button class="hero-btn" style="background:rgba(220,38,38,.75);color:white" onclick="Props.deleteCurrent()">🗑️ מחיקה</button>
       </div>
     </div>
