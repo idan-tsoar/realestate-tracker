@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ניהול נכסי נדל"ן</title>
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     AUTH SCREEN
+══════════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <span class="bigicon">🏢</span>
+      <h1>ניהול נכסי נדל"ן</h1>
+      <p>מערכת מקצועית לניהול נכסים ולקוחות</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">כניסה</button>
+      <button class="auth-tab" id="tab-reg" onclick="switchAuthTab('reg')">הרשמה</button>
+    </div>
+
+    <div class="error-box" id="auth-err"></div>
+
+    <!-- LOGIN -->
+    <div id="frm-login">
+      <div class="form-group">
+        <label>אימייל</label>
+        <input type="email" id="l-email" placeholder="your@email.com" onkeypress="if(event.key==='Enter')doLogin()" />
+      </div>
+      <div class="form-group">
+        <label>סיסמה</label>
+        <input type="password" id="l-pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">כניסה →</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="frm-reg" style="display:none">
+      <div class="form-group">
+        <label>שם מלא *</label>
+        <input type="text" id="r-name" placeholder="ישראל ישראלי" />
+      </div>
+      <div class="form-group">
+        <label>שם חברה / משרד</label>
+        <input type="text" id="r-company" placeholder="חברת נדל״ן בע״מ" />
+      </div>
+      <div class="form-group">
+        <label>אימייל *</label>
+        <input type="email" id="r-email" placeholder="your@email.com" />
+      </div>
+      <div class="form-group">
+        <label>סיסמה * (לפחות 6 תווים)</label>
+        <input type="password" id="r-pass" placeholder="••••••••" onkeypress="if(event.key==='Enter')doRegister()" />
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doRegister()">יצירת חשבון →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     APP SCREEN
+══════════════════════════════════════════════════════════ -->
+<div id="app-screen">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <span class="icon">🏢</span>
+      <span>ניהול נכסים</span>
+    </div>
+    <div class="navbar-right">
+      <div class="user-badge">👤 <span id="disp-name"></span></div>
+      <button class="btn btn-secondary btn-sm" onclick="doLogout()">יציאה</button>
+    </div>
+  </nav>
+
+  <!-- Page Tabs -->
+  <div class="page-tabs">
+    <button class="page-tab active" data-tab="properties" onclick="App.switchTab('properties')">🏢 נכסים</button>
+    <button class="page-tab" data-tab="clients" onclick="App.switchTab('clients')">👥 לקוחות</button>
+  </div>
+
+  <!-- ── PROPERTIES SECTION ─────────────────────────────── -->
+  <div class="page-section active" id="sec-properties">
+    <div class="main">
+
+      <!-- Alert Banner -->
+      <div class="alert-banner" id="alert-banner">
+        <span class="ico">⚠️</span>
+        <div id="alert-text"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-ico ico-blue">🏢</div>
+          <div><div class="stat-val" id="s-total">0</div><div class="stat-lbl">סה"כ נכסים</div></div></div>
+        <div class="stat-card"><div class="stat-ico ico-green">✅</div>
+          <div><div class="stat-val" id="s-avail">0</div><div class="stat-lbl">פנויים</div></div></div>
+        <div class="stat-card"><div class="stat-ico ico-blue">👥</div>
+          <div><div class="stat-val" id="s-occ">0</div><div class="stat-lbl">מושכרים</div></div></div>
+        <div class="stat-card"><div class="stat-ico ico-orange">⏰</div>
+          <div><div class="stat-val" id="s-exp">0</div><div class="stat-lbl">מסתיימים בקרוב</div></div></div>
+        <div class="stat-card"><div class="stat-ico ico-green">💰</div>
+          <div><div class="stat-val" id="s-inc">₪0</div><div class="stat-lbl">הכנסה חודשית</div></div></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box">
+            🔍 <input type="text" id="q-search" placeholder="חפש נכס, כתובת, שוכר, בעלים..." oninput="Props.render()" />
+          </div>
+          <select class="filter-select" id="q-status" onchange="Props.render()">
+            <option value="">כל הסטטוסים</option>
+            <option value="available">פנוי</option>
+            <option value="occupied">מושכר</option>
+            <option value="maintenance">תחזוקה</option>
+          </select>
+          <select class="filter-select" id="q-type" onchange="Props.render()">
+            <option value="">כל הסוגים</option>
+            <option value="built">בנוי</option>
+            <option value="shell">מעטפת</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="Props.openAdd()">+ הוסף נכס</button>
+      </div>
+
+      <div class="loading" id="p-loading"><div class="spinner"></div></div>
+      <div class="properties-grid" id="props-grid" style="display:none"></div>
+      <div class="empty-state" id="p-empty" style="display:none">
+        <div class="big">🏗️</div>
+        <h3>אין נכסים עדיין</h3>
+        <p>לחץ על "הוסף נכס" כדי להתחיל</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CLIENTS SECTION ────────────────────────────────── -->
+  <div class="page-section" id="sec-clients">
+    <div class="main">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box">
+            🔍 <input type="text" id="c-search" placeholder="חפש לקוח, חברה, טלפון..." oninput="Clients.render()" />
+          </div>
+          <select class="filter-select" id="c-status-f" onchange="Clients.render()">
+            <option value="">כל הסטטוסים</option>
+            <option value="active">פעיל</option>
+            <option value="inactive">לא פעיל</option>
+            <option value="closed">סגור</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="Clients.openAdd()">+ הוסף לקוח</button>
+      </div>
+
+      <div class="loading" id="c-loading"><div class="spinner"></div></div>
+      <div class="clients-grid" id="clients-grid" style="display:none"></div>
+      <div class="empty-state" id="c-empty" style="display:none">
+        <div class="big">👥</div>
+        <h3>אין לקוחות עדיין</h3>
+        <p>לחץ על "הוסף לקוח" כדי להתחיל לנהל לקוחות</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app-screen -->
+
+<!-- ══════════════════════════════════════════════════════════
+     PROPERTY MODAL (Add / Edit)
+══════════════════════════════════════════════════════════ -->
+<div class="overlay" id="prop-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2 id="modal-title">הוסף נכס חדש</h2>
+      <button class="btn btn-icon" onclick="closeOverlay('prop-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="p-id" />
+
+      <div class="sec-title">📋 פרטי הנכס</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שם הנכס / מספר *</label>
+          <input type="text" id="p-name" placeholder="משרד 101, בניין הרצל..." />
+        </div>
+        <div class="form-group">
+          <label>כתובת *</label>
+          <input type="text" id="p-addr" placeholder="רחוב הרצל 1, תל אביב" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>גודל (מ"ר)</label>
+          <input type="number" id="p-size" placeholder="250" />
+        </div>
+        <div class="form-group">
+          <label>קומה</label>
+          <input type="text" id="p-floor" placeholder="קומה 3" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>סוג הנכס</label>
+          <select id="p-type">
+            <option value="built">בנוי (מוכן לאכלוס)</option>
+            <option value="shell">מעטפת (גולמי)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>סטטוס</label>
+          <select id="p-status">
+            <option value="available">פנוי</option>
+            <option value="occupied">מושכר</option>
+            <option value="maintenance">בתחזוקה</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>מקומות חניה</label>
+          <input type="number" id="p-parking" placeholder="2" />
+        </div>
+        <div class="form-group">
+          <label>כיוון / חשיפה</label>
+          <input type="text" id="p-dir" placeholder="ים, מזרח, מרכז עיר..." />
+        </div>
+      </div>
+
+      <div class="sec-title">💰 פרטי שכירות</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שכירות חודשית (₪)</label>
+          <input type="number" id="p-rent" placeholder="15000" />
+        </div>
+        <div class="form-group">
+          <label>דמי ניהול חודשיים (₪)</label>
+          <input type="number" id="p-mgmt" placeholder="2000" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>כולל מע"מ?</label>
+          <select id="p-vat">
+            <option value="no">לא (+ מע"מ)</option>
+            <option value="yes">כן (כולל מע"מ)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>ערבות / ביטחונות</label>
+          <input type="text" id="p-security" placeholder="3 חודשי שכירות" />
+        </div>
+      </div>
+
+      <div class="sec-title">👤 פרטי שוכר</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שם שוכר / חברה</label>
+          <input type="text" id="p-tenant" placeholder="חברת ABC בע״מ" />
+        </div>
+        <div class="form-group">
+          <label>איש קשר</label>
+          <input type="text" id="p-contact" placeholder="ישראל ישראלי" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>טלפון שוכר</label>
+          <input type="tel" id="p-phone" placeholder="050-1234567" />
+        </div>
+        <div class="form-group">
+          <label>אימייל שוכר</label>
+          <input type="email" id="p-temail" placeholder="tenant@co.com" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>תחילת חוזה</label>
+          <input type="date" id="p-start" />
+        </div>
+        <div class="form-group">
+          <label>סיום חוזה</label>
+          <input type="date" id="p-end" />
+        </div>
+      </div>
+
+      <div class="sec-title">🏠 פרטי בעל הנכס</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שם בעל הנכס</label>
+          <input type="text" id="p-owner-name" placeholder="יעקב כהן" />
+        </div>
+        <div class="form-group">
+          <label>חברה</label>
+          <input type="text" id="p-owner-company" placeholder="נדל״ן כהן בע״מ" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>טלפון בעל הנכס</label>
+          <input type="tel" id="p-owner-phone" placeholder="052-9876543" />
+        </div>
+        <div class="form-group">
+          <label>אימייל בעל הנכס</label>
+          <input type="email" id="p-owner-email" placeholder="owner@co.com" />
+        </div>
+      </div>
+
+      <div class="sec-title">📝 מידע נוסף</div>
+      <div class="form-group">
+        <label>הערות</label>
+        <textarea id="p-notes" rows="3" placeholder="הערות, מאפיינים מיוחדים, היסטוריה..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>ארנונה שנתית (₪)</label>
+          <input type="number" id="p-arnona" placeholder="24000" />
+        </div>
+        <div class="form-group">
+          <label>מי משלם ארנונה?</label>
+          <select id="p-arnona-who">
+            <option value="tenant">שוכר</option>
+            <option value="owner">בעל הנכס</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-primary" onclick="Props.save()">💾 שמור נכס</button>
+      <button class="btn btn-secondary" onclick="closeOverlay('prop-modal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     CLIENT MODAL (Add / Edit)
+══════════════════════════════════════════════════════════ -->
+<div class="overlay" id="client-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2 id="c-modal-title">הוסף לקוח חדש</h2>
+      <button class="btn btn-icon" onclick="closeOverlay('client-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="c-id" />
+
+      <div class="sec-title">👤 פרטי לקוח</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>שם מלא *</label>
+          <input type="text" id="c-name" placeholder="ישראל ישראלי" />
+        </div>
+        <div class="form-group">
+          <label>חברה</label>
+          <input type="text" id="c-company" placeholder="חברת ABC בע״מ" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>טלפון</label>
+          <input type="tel" id="c-phone" placeholder="050-1234567" />
+        </div>
+        <div class="form-group">
+          <label>אימייל</label>
+          <input type="email" id="c-email" placeholder="client@co.com" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>סטטוס</label>
+          <select id="c-status">
+            <option value="active">פעיל — מחפש נכס</option>
+            <option value="inactive">לא פעיל</option>
+            <option value="closed">סגור — מצא נכס</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>סוג נכס מועדף</label>
+          <select id="c-pref-type">
+            <option value="any">כל סוג</option>
+            <option value="built">בנוי בלבד</option>
+            <option value="shell">מעטפת בלבד</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sec-title">🔍 דרישות חיפוש (לסינון אוטומטי)</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>גודל מינ' (מ"ר)</label>
+          <input type="number" id="c-min-size" placeholder="100" />
+        </div>
+        <div class="form-group">
+          <label>גודל מקס' (מ"ר)</label>
+          <input type="number" id="c-max-size" placeholder="500" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>תקציב מינ' ₪/חודש (שכ'+ניהול)</label>
+          <input type="number" id="c-min-budget" placeholder="10000" />
+        </div>
+        <div class="form-group">
+          <label>תקציב מקס' ₪/חודש (שכ'+ניהול)</label>
+          <input type="number" id="c-max-budget" placeholder="30000" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>מקומות חניה מינ'</label>
+          <input type="number" id="c-min-parking" placeholder="2" />
+        </div>
+        <div class="form-group">
+          <label>אזורים / ערים מועדפות</label>
+          <input type="text" id="c-area" placeholder="תל אביב, רמת גן, פתח תקווה" />
+        </div>
+      </div>
+
+      <div class="sec-title">📝 הערות</div>
+      <div class="form-group">
+        <textarea id="c-notes" rows="3" placeholder="דרישות מיוחדות, העדפות נוספות..."></textarea>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-primary" onclick="Clients.save()">💾 שמור לקוח</button>
+      <button class="btn btn-secondary" onclick="closeOverlay('client-modal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MATCH PANEL
+══════════════════════════════════════════════════════════ -->
+<div class="overlay" id="match-panel">
+  <div class="modal" style="max-width:1000px">
+    <div class="modal-hdr">
+      <h2>🔍 נכסים מתאימים ל<span id="match-client-name"></span></h2>
+      <button class="btn btn-icon" onclick="closeOverlay('match-panel')">✕</button>
+    </div>
+    <div class="modal-body" id="match-body" style="padding:20px 24px;max-height:75vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PROPERTY DETAIL PANEL
+══════════════════════════════════════════════════════════ -->
+<div class="detail-overlay" id="detail-overlay">
+  <div class="detail-panel">
+    <div class="detail-hero">
+      <div class="detail-hero-bg" id="hero-bg">🏢</div>
+      <div class="hero-grad">
+        <div class="hero-info">
+          <h2 id="hero-name"></h2>
+          <p id="hero-addr"></p>
+        </div>
+      </div>
+      <button class="hero-back" onclick="Props.closeDetail()">← חזרה</button>
+      <div class="hero-actions">
+        <button class="hero-btn" style="background:rgba(255,255,255,.22);color:white" onclick="Props.openEdit()">✏️ עריכה</button>
+        <button class="hero-btn" style="background:rgba(220,38,38,.75);color:white" onclick="Props.deleteCurrent()">🗑️ מחיקה</button>
+      </div>
+    </div>
+
+    <div class="detail-content">
+      <!-- Info cards grid -->
+      <div class="info-grid" id="det-info"></div>
+
+      <!-- Tenant block -->
+      <div id="det-tenant"></div>
+
+      <!-- Owner block -->
+      <div id="det-owner"></div>
+
+      <!-- Photos -->
+      <div style="margin-bottom:26px">
+        <div class="section-heading">
+          <h3>📸 תמונות הנכס</h3>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+            📎 העלה תמונות
+            <input type="file" accept="image/*" multiple style="display:none" onchange="Props.uploadMedia(this,'photos')" />
+          </label>
+        </div>
+        <div class="image-gallery" id="gallery-photos"></div>
+        <div id="photos-empty" style="color:var(--muted);font-size:13px;margin-top:8px;display:none">אין תמונות עדיין</div>
+      </div>
+
+      <!-- Floor Plans -->
+      <div style="margin-bottom:26px">
+        <div class="section-heading">
+          <h3>📐 תשריטים</h3>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+            📎 העלה תשריט
+            <input type="file" accept="image/*,.pdf" multiple style="display:none" onchange="Props.uploadMedia(this,'floorplans')" />
+          </label>
+        </div>
+        <div class="image-gallery" id="gallery-floorplans"></div>
+        <div id="floorplans-empty" style="color:var(--muted);font-size:13px;margin-top:8px;display:none">אין תשריטים עדיין</div>
+      </div>
+
+      <!-- Notes -->
+      <div id="det-notes"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LIGHTBOX
+══════════════════════════════════════════════════════════ -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lb-close">✕</button>
+  <img id="lb-img" src="" alt="" onclick="event.stopPropagation()" />
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCRIPTS (order matters)
+══════════════════════════════════════════════════════════ -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/alerts.js"></script>
+<script src="js/properties.js"></script>
+<script src="js/clients.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
