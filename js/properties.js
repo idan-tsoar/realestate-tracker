@@ -337,16 +337,66 @@ const Props = (() => {
   }
 
   // ── Media upload ─────────────────────────────────────────
+  // ── File type helpers ────────────────────────────────────
+  function _getFileName(url) {
+    try {
+      // Firebase Storage URL: .../TYPE%2FTIMESTAMP_filename.ext?token=...
+      const raw = url.split('/o/').pop().split('?')[0];
+      const decoded = decodeURIComponent(raw);
+      // Take last segment after /
+      const base = decoded.split('/').pop();
+      // Strip leading timestamp (e.g. "1778056913659_")
+      return base.replace(/^\d+_/, '');
+    } catch { return 'קובץ'; }
+  }
+
+  function _getExt(name) {
+    return (name.split('.').pop() || '').toLowerCase();
+  }
+
+  const IMAGE_EXTS = ['jpg','jpeg','png','gif','webp','svg','bmp','tiff','avif'];
+
+  function _fileIcon(ext) {
+    if (ext === 'pdf')                          return '📄';
+    if (['doc','docx'].includes(ext))           return '📝';
+    if (['xls','xlsx'].includes(ext))           return '📊';
+    if (['dwg','dxf'].includes(ext))            return '📐';
+    if (['zip','rar','7z'].includes(ext))       return '🗜️';
+    return '📎';
+  }
+
   function _renderGallery(items, type) {
     const gallery = document.getElementById('gallery-'+type);
     const empty   = document.getElementById(type+'-empty');
     if (!items || !items.length) { gallery.innerHTML=''; empty.style.display='block'; return; }
     empty.style.display='none';
-    gallery.innerHTML = items.map((url,i) => `
-      <div class="gallery-item" onclick="openLightbox('${url}')">
-        <img src="${url}" alt="" />
-        <button class="gallery-rm" onclick="event.stopPropagation();Props.removeMedia('${type}',${i})">✕</button>
-      </div>`).join('');
+
+    gallery.innerHTML = items.map((url, i) => {
+      const name    = _getFileName(url);
+      const ext     = _getExt(name);
+      const isImage = IMAGE_EXTS.includes(ext);
+
+      if (isImage) {
+        return `
+        <div class="gallery-item" onclick="openLightbox('${url}')">
+          <img src="${url}" alt="${esc(name)}" />
+          <button class="gallery-rm" onclick="event.stopPropagation();Props.removeMedia('${type}',${i})" title="מחק">✕</button>
+        </div>`;
+      }
+
+      // Non-image file — show card with icon + download
+      return `
+      <div class="file-card">
+        <div class="file-card-icon">${_fileIcon(ext)}</div>
+        <div class="file-card-name" title="${esc(name)}">${esc(name)}</div>
+        <div class="file-card-ext">${ext.toUpperCase()}</div>
+        <div class="file-card-actions">
+          <a href="${url}" target="_blank" rel="noopener" class="btn btn-secondary btn-xs">פתח</a>
+          <a href="${url}" download="${esc(name)}" class="btn btn-primary btn-xs">הורד ⬇</a>
+          <button class="btn btn-danger-soft btn-xs" onclick="Props.removeMedia('${type}',${i})">מחק</button>
+        </div>
+      </div>`;
+    }).join('');
   }
 
   async function uploadMedia(input, type) {
