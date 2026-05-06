@@ -430,6 +430,56 @@ const Props = (() => {
     toast('הקובץ הוסר', 'ok');
   }
 
+  async function downloadAll() {
+    const p = getById(_currentId);
+    if (!p) return;
+
+    const photos     = p.photos     || [];
+    const floorplans = p.floorplans || [];
+    const allFiles   = [
+      ...photos.map(u     => ({ url: u, folder: 'תמונות' })),
+      ...floorplans.map(u => ({ url: u, folder: 'תשריטים' })),
+    ];
+
+    if (!allFiles.length) { toast('אין קבצים להורדה', 'err'); return; }
+
+    toast('מכין קובץ ZIP… אנא המתן', 'ok');
+
+    const zip  = new JSZip();
+    const seen = {};   // deduplicate filenames within each folder
+
+    const fetchFile = async ({ url, folder }) => {
+      try {
+        const res  = await fetch(url);
+        const blob = await res.blob();
+        const raw  = _getFileName(url);
+        seen[folder] = seen[folder] || {};
+        let name = raw;
+        if (seen[folder][name]) {
+          const ext  = _getExt(raw);
+          const base = ext ? raw.slice(0, -(ext.length + 1)) : raw;
+          name = `${base}_${seen[folder][name]}.${ext}`;
+        }
+        seen[folder][raw] = (seen[folder][raw] || 0) + 1;
+        zip.folder(folder).file(name, blob);
+      } catch (e) {
+        console.warn('ZIP: failed to fetch', url, e);
+      }
+    };
+
+    await Promise.all(allFiles.map(fetchFile));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const link = document.createElement('a');
+    link.href  = URL.createObjectURL(blob);
+    link.download = `${(p.name || 'נכס').replace(/[/\\?%*:|"<>]/g, '_')}_קבצים.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    toast('הורדת ה-ZIP הושלמה ✓', 'ok');
+  }
+
   // ── Helpers ──────────────────────────────────────────────
   function _showLoading() {
     document.getElementById('p-loading').style.display  = 'flex';
@@ -438,6 +488,6 @@ const Props = (() => {
   }
 
   // ── Public API ───────────────────────────────────────────
-  return { start, stop, render, getAll, getById, openAdd, openEdit, save, openDetail, closeDetail, deleteCurrent, uploadMedia, removeMedia };
+  return { start, stop, render, getAll, getById, openAdd, openEdit, save, openDetail, closeDetail, deleteCurrent, uploadMedia, removeMedia, downloadAll };
 
 })();
